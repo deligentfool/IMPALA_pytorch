@@ -1,0 +1,23 @@
+syntax = "proto3";
+package message;
+
+service IMPALA{
+    rpc get_trajectory (TrajectoryRequest) returns (TrajectoryResponse);
+    rpc send_parameter (ParameterRequest) returns (ParameterResponse);
+}
+
+message TrajectoryRequest{
+    string trajectory = 1;
+}
+
+message TrajectoryResponse{
+    string message = 1;
+}
+
+message ParameterRequest{
+    string parameter = 1;
+}
+
+message ParameterResponse{
+    bytes message = 1;
+}
