@@ -23,8 +23,7 @@ class learner(impala_pb2_grpc.IMPALAServicer):
             if len(self.buffer) >= self.batch_size:
                 value_loss, policy_loss, loss = self.agent.train(self.batch_size)
                 train_step += 1
-                if train_step % 100 == 0:
-                    print('train_step: {}  value_loss: {:.4f}  policy_loss: {:.4f}  loss: {:.4f}'.format(train_step, value_loss, policy_loss, loss))
+                print('train_step: {}  value_loss: {:.4f}  policy_loss: {:.4f}  loss: {:.4f}'.format(train_step, value_loss, policy_loss, loss))
 
     def get_trajectory(self, request, context):
         traj_data = json.loads(request.trajectory)
@@ -34,8 +33,7 @@ class learner(impala_pb2_grpc.IMPALAServicer):
             rew=traj_data['rewards'],
             next_obs=traj_data['next_observations'],
             don=traj_data['dones'],
-            pol=traj_data['behavior_policies'],
-            extend=True
+            pol=traj_data['behavior_policies']
         )
         return impala_pb2.TrajectoryResponse(message=f'from server data')
 
@@ -50,12 +48,12 @@ if __name__ == '__main__':
     learner_instance = learner(
         env=env,
         learning_rate=1e-3,
-        n_step=98,
+        n_step=1,
         rho=1.0,
         c=1.0,
         gamma=0.99,
         entropy_weight=0.001,
-        batch_size=100,
+        batch_size=32,
         capacity=1000
     )
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))

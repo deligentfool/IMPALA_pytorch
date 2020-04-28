@@ -7,6 +7,8 @@ from torch.utils.tensorboard import SummaryWriter
 import torch.multiprocessing as mp
 import gym
 import pickle
+import torch
+import numpy as np
 
 
 def send_trajectory(channel, trajectory):
@@ -21,6 +23,7 @@ def get_parameter(channel):
 
 def actor_run(actor_id, env_id):
     episode = 0
+    weight_reward = None
     env = gym.make(env_id)
     actor_buffer = buffer()
     agent = actor_critic_agent(env, actor_buffer)
@@ -32,11 +35,30 @@ def actor_run(actor_id, env_id):
     agent.load_state_dict(params)
 
     while True:
-        weight_reward, reward = agent.run()
-        episode += 1
-        print('episode: {}  weight_reward: {:.2f}  reward: {:.2f}'.format(episode, weight_reward, reward))
-        traj_data = actor_buffer.get_json_data()
-        send_trajectory(channel, trajectory=traj_data)
+        obs = env.reset()
+        total_reward = 0
+        while True:
+            action = agent.net.act(torch.FloatTensor(np.expand_dims(obs, 0))).item()
+            behavior_policy, _ = agent.net.forward(torch.FloatTensor(np.expand_dims(obs, 0)))
+            next_obs, reward, done, info = env.step(action)
+            actor_buffer.store(obs, action, reward, next_obs, done, behavior_policy.squeeze(0).detach().numpy())
+            total_reward += reward
+            obs = next_obs
+            if done:
+                if weight_reward:
+                    weight_reward = 0.99 * weight_reward + 0.01 * total_reward
+                else:
+                    weight_reward = total_reward
+                episode += 1
+                print('episode: {}  weight_reward: {:.2f}  reward: {:.2f}'.format(episode, weight_reward, total_reward))
+            if len(actor_buffer) == 100:
+                traj_data = actor_buffer.get_json_data()
+                send_trajectory(channel, trajectory=traj_data)
+                params = get_parameter(channel)
+                params = pickle.loads(params)
+                agent.load_state_dict(params)
+            if done:
+                break
 
 
 if __name__ == '__main__':

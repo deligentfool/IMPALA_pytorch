@@ -4,11 +4,12 @@ from collections import deque, namedtuple
 import json
 from NumpyEncoder import NumpyEncoder
 import copy
-
+import threading
 
 class buffer(object):
     def __init__(self, capacity=None):
         self.capacity = capacity
+        self.lock = threading.Lock()
         if self.capacity is not None:
             self.observations = deque(maxlen=self.capacity)
             self.actions = deque(maxlen=self.capacity)
@@ -24,26 +25,18 @@ class buffer(object):
             self.dones = deque()
             self.behavior_policies = deque()
 
-    def store(self, obs, act, rew, next_obs, don, pol, extend=False):
-        if not extend:
-            self.observations.append(obs)
-            self.actions.append(act)
-            self.rewards.append(rew)
-            self.next_observations.append(next_obs)
-            self.dones.append(don)
-            self.behavior_policies.append(pol)
-        else:
-            if self.capacity is not None:
-                if len(obs) > self.capacity - len(self.observations):
-                    return
-            self.observations.extend(obs)
-            self.actions.extend(act)
-            self.rewards.extend(rew)
-            self.next_observations.extend(next_obs)
-            self.dones.extend(don)
-            self.behavior_policies.extend(pol)
+    def store(self, obs, act, rew, next_obs, don, pol):
+        self.lock.acquire()
+        self.observations.append(obs)
+        self.actions.append(act)
+        self.rewards.append(rew)
+        self.next_observations.append(next_obs)
+        self.dones.append(don)
+        self.behavior_policies.append(pol)
+        self.lock.release()
 
     def get_data(self, batch_size=None):
+        self.lock.acquire()
         if batch_size is not None:
             observations = [self.observations.popleft() for _ in range(batch_size)]
             actions = [self.actions.popleft() for _ in range(batch_size)]
@@ -61,6 +54,7 @@ class buffer(object):
             self.clear()
 
         traj_data = namedtuple('traj_data', ['observations', 'actions', 'rewards', 'next_observations', 'dones', 'behavior_policies'])(observations, actions, rewards, next_observations, dones, behavior_policies)
+        self.lock.release()
         return traj_data
 
     def get_json_data(self, batch_size=None):
