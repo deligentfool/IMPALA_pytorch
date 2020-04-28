@@ -71,6 +71,8 @@ class actor_critic_agent(object):
         acc = 0
         vs_minus_v_xs = []
         for i in range(trajectory_size - 1, -1, -1):
+            # * origin paper:
+            # * acc = deltas[:, i] + self.gamma * (1 - dones)[:, i] * c_s[:, i] * (acc - next_values[:, i])
             acc = deltas[:, i] + self.gamma * (1 - dones)[:, i] * c_s[:, i] * acc
             vs_minus_v_xs.append(acc.view(-1, 1))
 
