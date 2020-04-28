@@ -33,47 +33,48 @@ class actor_critic_agent(object):
         behavior_policies = torch.FloatTensor(data.behavior_policies)
 
         target_policies, values = self.net.forward(observations)
-        target_policies = target_policies.gather(1, actions)
-        behavior_policies = behavior_policies.gather(1, actions)
+        target_policies_action = target_policies.gather(1, actions)
+        behavior_policies_action = behavior_policies.gather(1, actions)
 
         observations_list = self.split(observations)
         rewards_list = self.split(rewards)
         actions_list = self.split(actions)
         next_observations_list = self.split(next_observations)
         dones_list = self.split(dones)
-        behavior_policies_list = self.split(behavior_policies)
+        behavior_policies_action_list = self.split(behavior_policies_action)
+        target_policies_action_list = self.split(target_policies_action)
         target_policies_list = self.split(target_policies)
         values_list = self.split(values)
 
         vs = 0
         for i in reversed(range(self.n_step)):
-            rho = torch.clamp_max((target_policies_list[i].log() - behavior_policies_list[i].log()).exp(), self.rho)
+            rho = torch.clamp_max((target_policies_action_list[i].log() - behavior_policies_action_list[i].log()).exp(), self.rho)
             if i >= 1:
-                c = torch.clamp_max((target_policies_list[i - 1].log() - behavior_policies_list[i - 1].log()).exp(), self.c)
+                c = torch.clamp_max((target_policies_action_list[i - 1].log() - behavior_policies_action_list[i - 1].log()).exp(), self.c)
             else:
                 c = 1
             delta = rho * (rewards_list[i] + self.gamma * (1 - dones_list[i]) * values_list[i + 1] - values_list[i])
             vs += delta
-            vs = vs * c * self.gamma ** (i - 0)
-        vs = vs + values_list[0]
+            vs = vs * c * self.gamma
+        vs = vs / self.gamma + values_list[0]
 
         vs_1 = 0
         for i in reversed(range(1, self.n_step + 1)):
-            rho = torch.clamp_max((target_policies_list[i].log() - behavior_policies_list[i].log()).exp(), self.rho)
+            rho = torch.clamp_max((target_policies_action_list[i].log() - behavior_policies_action_list[i].log()).exp(), self.rho)
             if i >= 2:
-                c = torch.clamp_max((target_policies_list[i - 1].log() - behavior_policies_list[i - 1].log()).exp(), self.c)
+                c = torch.clamp_max((target_policies_action_list[i - 1].log() - behavior_policies_action_list[i - 1].log()).exp(), self.c)
             else:
                 c = 1
             delta = rho * (rewards_list[i] + self.gamma * (1 - dones_list[i]) * values_list[i + 1] - values_list[i])
             vs_1 += delta
-            vs_1 = vs_1 * c * self.gamma ** (i - 1)
-        vs_1 = vs_1 + values_list[1]
+            vs_1 = vs_1 * c * self.gamma
+        vs_1 = vs_1 / self.gamma + values_list[1]
 
         dist = torch.distributions.Categorical(target_policies_list[0])
         entropies = dist.entropy().unsqueeze(1)
         value_loss = (vs.detach() - values_list[0]).pow(2).sum()
         delta = rewards_list[0] + vs_1 * self.gamma * (1 - dones_list[0]) - values_list[0]
-        policy_loss = - (target_policies_list[0]).log() * delta.detach() - self.entropy_weight * entropies
+        policy_loss = - (target_policies_action_list[0]).log() * delta.detach() - self.entropy_weight * entropies
         policy_loss = policy_loss.sum()
         loss = value_loss + policy_loss
         self.optimizer.zero_grad()

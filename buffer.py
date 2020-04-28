@@ -33,6 +33,9 @@ class buffer(object):
             self.dones.append(don)
             self.behavior_policies.append(pol)
         else:
+            if self.capacity is not None:
+                if len(obs) > self.capacity - len(self.observations):
+                    return
             self.observations.extend(obs)
             self.actions.extend(act)
             self.rewards.extend(rew)

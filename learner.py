@@ -50,7 +50,7 @@ if __name__ == '__main__':
     learner_instance = learner(
         env=env,
         learning_rate=1e-3,
-        n_step=1,
+        n_step=98,
         rho=1.0,
         c=1.0,
         gamma=0.99,
