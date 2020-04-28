@@ -28,7 +28,7 @@ def actor_run(actor_id, env_id):
     actor_buffer = buffer()
     agent = actor_critic_agent(env, actor_buffer)
     writer = SummaryWriter('./log/actor_{}'.format(actor_id))
-    channel = grpc.insecure_channel('localhost:50051')
+    channel = grpc.insecure_channel('localhost:43231')
 
     params = get_parameter(channel)
     params = pickle.loads(params)
@@ -62,10 +62,4 @@ def actor_run(actor_id, env_id):
 
 
 if __name__ == '__main__':
-    '''
-    num_cpu = 1
-    env_id = 'CartPole-v0'
-    process = [mp.Process(target=actor_run, args=(i, env_id)) for i in range(num_cpu)]
-    [p.start() for p in process]
-    '''
     actor_run(0, 'CartPole-v0')

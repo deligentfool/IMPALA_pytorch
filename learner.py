@@ -48,7 +48,6 @@ if __name__ == '__main__':
     learner_instance = learner(
         env=env,
         learning_rate=1e-3,
-        n_step=1,
         rho=1.0,
         c=1.0,
         gamma=0.99,
@@ -58,7 +57,7 @@ if __name__ == '__main__':
     )
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     impala_pb2_grpc.add_IMPALAServicer_to_server(learner_instance, server)
-    server.add_insecure_port('localhost:50051')
+    server.add_insecure_port('localhost:43231')
 
     server.start()
     learner_instance.train()
