@@ -6,6 +6,7 @@ from NumpyEncoder import NumpyEncoder
 import copy
 import threading
 
+
 class buffer(object):
     def __init__(self, capacity=None):
         self.capacity = capacity
@@ -14,23 +15,20 @@ class buffer(object):
             self.observations = deque(maxlen=self.capacity)
             self.actions = deque(maxlen=self.capacity)
             self.rewards = deque(maxlen=self.capacity)
-            self.next_observations = deque(maxlen=self.capacity)
             self.dones = deque(maxlen=self.capacity)
             self.behavior_policies = deque(maxlen=self.capacity)
         else:
             self.observations = deque()
             self.actions = deque()
             self.rewards = deque()
-            self.next_observations = deque()
             self.dones = deque()
             self.behavior_policies = deque()
 
-    def store(self, obs, act, rew, next_obs, don, pol):
+    def store(self, obs, act, rew, don, pol):
         self.lock.acquire()
         self.observations.append(obs)
         self.actions.append(act)
         self.rewards.append(rew)
-        self.next_observations.append(next_obs)
         self.dones.append(don)
         self.behavior_policies.append(pol)
         self.lock.release()
@@ -41,23 +39,22 @@ class buffer(object):
             observations = [self.observations.popleft() for _ in range(batch_size)]
             actions = [self.actions.popleft() for _ in range(batch_size)]
             rewards = [self.rewards.popleft() for _ in range(batch_size)]
-            next_observations = [self.next_observations.popleft() for _ in range(batch_size)]
             dones = [self.dones.popleft() for _ in range(batch_size)]
             behavior_policies = [self.behavior_policies.popleft() for _ in range(batch_size)]
         else:
             observations = copy.deepcopy(list(self.observations))
             actions = copy.deepcopy(list(self.actions))
             rewards = copy.deepcopy(list(self.rewards))
-            next_observations = copy.deepcopy(list(self.next_observations))
             dones = copy.deepcopy(list(self.dones))
             behavior_policies = copy.deepcopy(list(self.behavior_policies))
             self.clear()
 
-        traj_data = namedtuple('traj_data', ['observations', 'actions', 'rewards', 'next_observations', 'dones', 'behavior_policies'])(observations, actions, rewards, next_observations, dones, behavior_policies)
+        traj_data = namedtuple('traj_data', ['observations', 'actions', 'rewards', 'dones', 'behavior_policies'])(observations, actions, rewards, dones, behavior_policies)
         self.lock.release()
         return traj_data
 
     def get_json_data(self, batch_size=None):
+        # * convert the binary data to string json data
         traj_data = self.get_data(batch_size)
         traj_data = traj_data._asdict()
         json_data = json.dumps(traj_data, cls=NumpyEncoder)
@@ -67,7 +64,6 @@ class buffer(object):
         self.observations.clear()
         self.rewards.clear()
         self.actions.clear()
-        self.next_observations.clear()
         self.dones.clear()
         self.behavior_policies.clear()
 

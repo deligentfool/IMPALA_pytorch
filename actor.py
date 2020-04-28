@@ -21,7 +21,7 @@ def get_parameter(channel):
     response = stub.send_parameter(impala_pb2.ParameterRequest(parameter='request from actor'))
     return response.message
 
-def actor_run(actor_id, env_id):
+def actor_run(actor_id, env_id, traj_length=100, log=False):
     episode = 0
     weight_reward = None
     env = gym.make(env_id)
@@ -41,7 +41,7 @@ def actor_run(actor_id, env_id):
             action = agent.net.act(torch.FloatTensor(np.expand_dims(obs, 0))).item()
             behavior_policy, _ = agent.net.forward(torch.FloatTensor(np.expand_dims(obs, 0)))
             next_obs, reward, done, info = env.step(action)
-            actor_buffer.store(obs, action, reward, next_obs, done, behavior_policy.squeeze(0).detach().numpy())
+            actor_buffer.store(obs, action, reward, done, behavior_policy.squeeze(0).detach().numpy())
             total_reward += reward
             obs = next_obs
             if done:
@@ -51,7 +51,10 @@ def actor_run(actor_id, env_id):
                     weight_reward = total_reward
                 episode += 1
                 print('episode: {}  weight_reward: {:.2f}  reward: {:.2f}'.format(episode, weight_reward, total_reward))
-            if len(actor_buffer) == 100:
+                if log:
+                    writer.add_scalar('reward', total_reward, episode)
+                    writer.add_scalar('weight_reward', weight_reward, episode)
+            if len(actor_buffer) == traj_length:
                 traj_data = actor_buffer.get_json_data()
                 send_trajectory(channel, trajectory=traj_data)
                 params = get_parameter(channel)
@@ -62,4 +65,4 @@ def actor_run(actor_id, env_id):
 
 
 if __name__ == '__main__':
-    actor_run(0, 'CartPole-v0')
+    actor_run(0, 'CartPole-v0', traj_length=100)
